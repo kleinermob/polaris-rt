@@ -1,0 +1,2 @@
+=== Polaris RT Layer Test App ===
+FAIL [vkCreateInstance(&instCI, nullptr, &instance)] result=-6 at C:\projects\polaris_rt\test_app\main.cpp:87

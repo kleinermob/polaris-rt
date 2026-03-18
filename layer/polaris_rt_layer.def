@@ -1,0 +1,6 @@
+LIBRARY "polaris_rt_layer"
+EXPORTS
+    vkGetInstanceProcAddr
+    vkGetDeviceProcAddr
+    vkNegotiateLoaderLayerInterfaceVersion
+    vkEnumerateInstanceLayerProperties

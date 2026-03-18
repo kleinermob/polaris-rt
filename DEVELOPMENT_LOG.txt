@@ -1,0 +1,63 @@
+# Polaris RT Layer Development Log
+
+## Date: 2026-03-18
+
+## Current State
+- Project: polaris_rt - Vulkan layer to emulate raytracing on AMD Polaris GPUs (RX 580/590)
+- GPU: AMD Radeon RX 580 Series (Polaris) - confirmed working with Vulkan 1.3.260
+
+## Known Issues
+
+### ISSUE: my_EnumerateDeviceExtensionProperties NOT being called
+**Symptom:** 
+- Layer loads successfully, instance creation works
+- GPU is detected (Radeon RX 580)
+- RT extension check fails: 0/4 present
+- Debug log shows vkGetInstanceProcAddr returns our hook, but the actual function is never executed
+
+**Evidence:**
+1. Log shows: `vkGetInstanceProcAddr(instance=..., pName=vkEnumerateDeviceExtensionProperties)` followed by `Hooking vkEnumerateDeviceExtensionProperties`
+2. BUT no debug output from inside my_EnumerateDeviceExtensionProperties
+3. MessageBox added to function - never appeared
+
+**What was tried:**
+1. Added EnumerateDeviceExtensionProperties to HOOK_DEV in vkGetDeviceProcAddr
+2. Added extensive debug logging (OutputDebugStringA + file)
+3. Hardcoded log path to: C:\projects\polaris_rt\build\bin\Release\layer_debug.txt
+4. Added MessageBoxA to verify function entry - never triggered
+
+## Files Modified
+- C:/projects/polaris_rt/layer/layer.cpp
+- C:/projects/polaris_rt/README.md (added test environment setup)
+
+## Latest Build Output
+- polaris_rt_layer.dll - builds successfully
+- rt_test_app.exe - builds successfully
+
+## Test Command
+```bash
+cd C:/projects/polaris_rt/build/bin/Release
+set VK_LAYER_PATH=.
+rt_test_app.exe
+```
+
+## TODO
+1. Fix the EnumerateDeviceExtensionProperties hook not being called
+2. Implement acceleration structure building with Embree
+3. Implement compute shader ray traversal
+4. Implement SBT emulation
+5. Test with real RT game
+
+## Recent Edits to layer.cpp
+- Removed duplicate VK_ENABLE_BETA_EXTENSIONS and _CRT_SECURE_NO_WARNINGS defines
+- Fixed format specifier in GetExceptionCode (line ~218)
+- Added HOOK_DEV(EnumerateDeviceExtensionProperties) to vkGetDeviceProcAddr
+- Added extensive debug logging in my_EnumerateDeviceExtensionProperties
+- Hardcoded log path in InitLogPath()
+
+## Key Code Locations
+- Hook definitions: line ~599-614 (vkGetInstanceProcAddr)
+- Hook definitions: line ~630-644 (vkGetDeviceProcAddr)  
+- my_EnumerateDeviceExtensionProperties: line ~247-320
+- GetNextGPA: line ~113-121
+- Instance storage: line ~200-206

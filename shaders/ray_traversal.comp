@@ -1,0 +1,153 @@
+#version 450
+#extension GL_EXT_ray_query : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_buffer_reference : enable
+
+// ============================================================================
+// Ray Traversal Compute Shader for Polaris RT Emulation
+//
+// BUG FIXES vs original:
+//   FIX-A  local_size declaration moved to file top (required before main()).
+//          Original had it at the bottom, which some GLSL compilers reject and
+//          which made the layout apply to the wrong (second) entry point.
+//   FIX-B  Removed duplicate entry point "mainSimple()".  GLSL allows exactly
+//          one function named "main"; the second definition caused compile
+//          errors on any standards-compliant compiler.
+//   FIX-C  rayQueryGetIntersectionTEXT(..., false) changed to (..., true).
+//          "false" queries the *candidate* (non-committed) intersection which
+//          may be undefined after rayQueryProceedEXT returns.  "true" queries
+//          the *committed* intersection, which is what we want.
+//   FIX-D  Shadow-ray variable "lightDir" shadowed the SceneData buffer member
+//          of the same name.  Renamed local to "lightDirN" to avoid the clash.
+// ============================================================================
+
+// FIX-A: workgroup size declared at global scope, before main()
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+// Push constants
+layout(push_constant) uniform PushConstants {
+    uint rayCount;
+    uint width;
+    uint height;
+    uint maxBounces;
+    uint shadowRaysEnabled;
+};
+
+// Input ray buffer
+// Each ray occupies 4 x vec4 slots:
+//   [rayIndex*4+0] = origin(xyz), tmax(w)
+//   [rayIndex*4+1] = direction(xyz), mask(w)
+//   [rayIndex*4+2] = payload (application-defined)
+//   [rayIndex*4+3] = extra mask / padding
+layout(binding = 0, scalar) buffer RayBuffer {
+    vec4 rays[];
+};
+
+layout(binding = 1) uniform accelerationStructureEXT tlas;
+
+// Output hit buffer (same 4-slot-per-ray layout as RayBuffer)
+layout(binding = 2, scalar) buffer HitBuffer {
+    vec4 hits[];
+};
+
+layout(binding = 3, scalar) buffer MissBuffer {
+    vec4 missData[];
+};
+
+// Scene data (no instance name → members are in global scope)
+layout(binding = 4, scalar) buffer SceneData {
+    mat4 viewMatrix;
+    mat4 projMatrix;
+    vec3 cameraPos;
+    float time;
+    vec3 lightDir;   // accessed as global "lightDir" in shader code
+    uint frameIndex;
+};
+
+// ============================================================================
+// BVH traversal helper
+// ============================================================================
+bool traverseBVH(
+    accelerationStructureEXT accel,
+    vec3 origin,
+    vec3 direction,
+    float tMin,
+    float tMax,
+    out vec3 hitPosition,
+    out vec3 hitNormal,
+    out float hitDistance
+) {
+    rayQueryEXT rayQuery;
+    rayQueryInitializeEXT(rayQuery, accel,
+        gl_RayFlagsOpaqueEXT, 0xff,
+        origin, tMin, direction, tMax);
+
+    // Advance until no more candidates (needed for non-opaque geometry too)
+    while (rayQueryProceedEXT(rayQuery)) { }
+
+    // FIX-C: use "true" to read the *committed* intersection, not candidate
+    if (rayQueryGetIntersectionTypeEXT(rayQuery, true) !=
+            gl_RayQueryCommittedIntersectionNoneEXT)
+    {
+        hitDistance = rayQueryGetIntersectionTEXT(rayQuery, true);  // FIX-C
+        hitPosition = origin + direction * hitDistance;
+        // TODO: fetch actual triangle normal via rayQueryGetIntersectionBarycentricsEXT
+        hitNormal = vec3(0.0, 1.0, 0.0);
+        return true;
+    }
+
+    return false;
+}
+
+// ============================================================================
+// Main entry point
+// ============================================================================
+void main() {
+    uint rayIndex = gl_GlobalInvocationID.x;
+    if (rayIndex >= rayCount) return;
+
+    // Unpack ray
+    vec4 rayOriginTmax = rays[rayIndex * 4 + 0];
+    vec4 rayDirMask    = rays[rayIndex * 4 + 1];
+
+    vec3  origin    = rayOriginTmax.xyz;
+    float tMax      = rayOriginTmax.w;
+    vec3  direction = rayDirMask.xyz;
+
+    // Primary ray
+    vec3  hitPosition;
+    vec3  hitNormal;
+    float hitDistance;
+
+    bool hit = traverseBVH(tlas, origin, direction, 0.001, tMax,
+                           hitPosition, hitNormal, hitDistance);
+
+    if (hit) {
+        hits[rayIndex * 4 + 0] = vec4(hitPosition, hitDistance);
+        hits[rayIndex * 4 + 1] = vec4(hitNormal, 1.0);   // w=1: closest hit
+        hits[rayIndex * 4 + 2] = vec4(1.0);              // albedo placeholder
+        hits[rayIndex * 4 + 3] = vec4(1.0);              // material ID placeholder
+    } else {
+        hits[rayIndex * 4 + 0] = vec4(-1.0);
+        hits[rayIndex * 4 + 1] = vec4(0.0);
+        hits[rayIndex * 4 + 2] = vec4(0.1, 0.1, 0.15, 1.0); // sky colour
+        hits[rayIndex * 4 + 3] = vec4(0.0);                  // miss
+    }
+
+    // Optional shadow ray
+    if (shadowRaysEnabled != 0u && hit) {
+        vec3 shadowOrigin = hitPosition + hitNormal * 0.001;
+
+        // FIX-D: renamed local from "lightDir" to "lightDirN" to avoid
+        // shadowing the SceneData buffer member of the same name.
+        vec3 lightDirN = normalize(lightDir);  // "lightDir" is the buffer member
+
+        vec3  dummy1; vec3 dummy2; float dummy3;
+        bool shadowHit = traverseBVH(tlas, shadowOrigin, lightDirN,
+                                     0.001, 1000.0,
+                                     dummy1, dummy2, dummy3);
+        if (shadowHit) {
+            hits[rayIndex * 4 + 2] *= 0.1;  // darken albedo in shadow
+        }
+    }
+}

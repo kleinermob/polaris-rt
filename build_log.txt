@@ -1,0 +1,38 @@
+============================================
+Building Polaris RT Layer
+============================================
+Using Vulkan SDK: C:\VulkanSDK\1.4.341.1
+Configuring with Clang-CL...
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.28000.
+-- Vulkan include: C:/VulkanSDK/1.4.341.1/include
+-- 
+-- === Polaris RT Layer Configuration ===
+-- Vulkan SDK:  C:/VulkanSDK/1.4.341.1/include
+-- Layer output: C:/projects/polaris_rt/build/bin
+-- Test app:    C:/projects/polaris_rt/build/bin/rt_test_app.exe
+-- CRT linkage: Static (MultiThreaded)
+-- JSON library_path: ./polaris_rt_layer.dll
+-- ========================================
+-- Configuring done (0.1s)
+-- Generating done (0.2s)
+-- Build files have been written to: C:/projects/polaris_rt/build
+Building with 14 threads...
+MSBuild-Version 17.14.40+3e7442088 für .NET Framework
+
+  1>Checking Build System
+  Building Custom Rule C:/projects/polaris_rt/CMakeLists.txt
+  Building Custom Rule C:/projects/polaris_rt/CMakeLists.txt
+  rt_test_app.vcxproj -> C:\projects\polaris_rt\build\bin\Release\rt_test_app.exe
+C:\projects\polaris_rt\layer\layer.cpp(608,1): warning : redeclaration of 'vkGetInstanceProcAddr' should not add 'dllexport' attribute [-Wdll-attribute-on-redeclaration] [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\projects\polaris_rt\layer\layer.cpp(133,42): message : previous declaration is here [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\projects\polaris_rt\layer\layer.cpp(646,1): error : redeclaration of 'vkGetDeviceProcAddr' cannot add 'dllexport' attribute [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\projects\polaris_rt\layer\layer.cpp(134,42): message : previous declaration is here [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\projects\polaris_rt\layer\layer.cpp(677,1): warning : redeclaration of 'vkNegotiateLoaderLayerInterfaceVersion' should not add 'dllexport' attribute [-Wdll-attribute-on-redeclaration] [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\VulkanSDK\1.4.341.1\include\vulkan/vk_layer.h(138,32): message : previous declaration is here [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\projects\polaris_rt\layer\layer.cpp(690,1): warning : redeclaration of 'vkEnumerateInstanceLayerProperties' should not add 'dllexport' attribute [-Wdll-attribute-on-redeclaration] [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\VulkanSDK\1.4.341.1\include\vulkan\vulkan_core.h(4639,32): message : previous declaration is here [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\projects\polaris_rt\layer\layer.cpp(696,1): warning : redeclaration of 'vkEnumerateDeviceLayerProperties' should not add 'dllexport' attribute [-Wdll-attribute-on-redeclaration] [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\VulkanSDK\1.4.341.1\include\vulkan\vulkan_core.h(4643,32): message : previous declaration is here [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\projects\polaris_rt\layer\layer.cpp(702,1): warning : redeclaration of 'vkEnumerateDeviceExtensionProperties' should not add 'dllexport' attribute [-Wdll-attribute-on-redeclaration] [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+C:\VulkanSDK\1.4.341.1\include\vulkan\vulkan_core.h(4633,32): message : previous declaration is here [C:\projects\polaris_rt\build\polaris_rt_layer.vcxproj]
+Build failed!

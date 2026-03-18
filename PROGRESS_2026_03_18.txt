@@ -1,0 +1,32 @@
+# Polaris RT Layer - Progress Log
+**Date:** 2026-03-18 16:22:34 +01:00
+
+## Summary of Breakthrough and Fixes
+
+### 1. The `VK_ERROR_LAYER_NOT_PRESENT` (-6) False Alarm
+The primary issue holding back the development of the layer was a `-6` error when running the layer via `rt_test_app.exe`. It seemed as though hooking `vkEnumerateDeviceExtensionProperties` caused the Vulkan loader to crash or reject the layer.
+However, this was a **terminal environment issue**. The testing scripts (`build.bat`) modified the current working directory to `C:\projects\polaris_rt\build`, rendering the relative `VK_LAYER_PATH=.` evaluation useless. Once `VK_LAYER_PATH` was set using an absolute path (or `%~dp0` inside the execution directory), the Vulkan loader correctly found the JSON manifest and the DLL, and `-6` no longer occurred.
+
+### 2. Correcting the `vkEnumerateDeviceExtensionProperties` Hook
+The original code hooked `vkEnumerateDeviceExtensionProperties` under `vkGetDeviceProcAddr` (device level). The Vulkan loader architectural spec requires this to be accessed at the **Instance** level, meaning it must be returned via `vkGetInstanceProcAddr(..., "vkEnumerateDeviceExtensionProperties")`.
+Once the false-alarm `-6` error was cleared up via the absolute `VK_LAYER_PATH`, hooking it inside `vkGetInstanceProcAddr` perfectly injected the layer's 6 fake Ray Tracing extensions (`VK_KHR_ray_tracing_pipeline`, `VK_KHR_acceleration_structure`, etc.) to the physical device. The test app correctly parsed `4/4 present`. 
+
+*Note: We also correctly mapped `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr` internal dispatch callbacks so the loader can accurately negotiate the call chains.*
+
+### 3. Fixing `InitLogPath` Dynamic Resolution
+Previously, `layer.cpp` contained a comment about fixing the `g_logPath` to run dynamically, but it still hardcoded the string `"C:\\projects\\polaris_rt\\build\\bin\\Release\\layer_debug.txt"`. 
+This was fixed by storing the module handle `hInst` during `DLL_PROCESS_ATTACH` in `DllMain`, and executing `GetModuleFileNameA(g_hModule, dllPath, MAX_PATH)` to dynamically write the debug log exactly next to the active `.dll`.
+
+### 4. Correcting Error Tables in `README.md`
+The Troubleshooting table had a confusing documentation error: `VK_ERROR_INCOMPATIBLE_DRIVER (-6)`.
+This was fixed:
+- `-6` = `VK_ERROR_LAYER_NOT_PRESENT` (Loader couldn't find the requested layer) 
+- `-9` = `VK_ERROR_INCOMPATIBLE_DRIVER` (No compatible GPU driver)
+
+---
+
+## Current State
+The custom test utility `rt_test_app.exe` fully completes execution through `vkCreateInstance`, checks all RT extension flags, and succeeds in creating fake device addresses and Acceleration Structure handles, producing:
+`=== All tests passed ===`
+
+The base interception mechanisms (Phase 2 & Phase 3 fake stubs) are complete and operational. Next phases involve actual Embree compilation and compute-based ray traversal.
